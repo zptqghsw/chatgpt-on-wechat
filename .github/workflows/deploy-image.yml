@@ -1,67 +1,47 @@
-# This workflow uses actions that are not certified by GitHub.
-# They are provided by a third-party and are governed by
-# separate terms of service, privacy policy, and support
-# documentation.
-
-# GitHub recommends pinning actions to a commit SHA.
-# To get a newer version, you will need to update the SHA.
-# You can also reference a tag or branch, but the action may change without warning.
-
-name: Create and publish a Docker image
+name: Docker build latest
 
 on:
-  push:
-    branches: ['master']
+  workflow_dispatch:
   create:
 env:
-  REGISTRY: ghcr.io
+  REGISTRY: zptqghsw
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  build-and-push-image:
+  docker:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-
     steps:
-      - name: Checkout repository
+      -
+        name: Checkout
         uses: actions/checkout@v3
-
-      - name: Login to Docker Hub
+      -
+        name: Set up QEMU
+        uses: docker/setup-qemu-action@v2
+      -
+        name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+      -
+        name: Login to Docker Hub
         uses: docker/login-action@v2
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: Log in to the Container registry
-        uses: docker/login-action@v2
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Extract metadata (tags, labels) for Docker
+	  - 
+	    name: Extract metadata (tags, labels) for Docker
         id: meta
         uses: docker/metadata-action@v4
         with:
           images: |
-            ${{ env.IMAGE_NAME }}
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v3
+      -
+        name: Build and push
+        uses: docker/build-push-action@v4
         with:
           context: .
+		  file: ./docker/Dockerfile.latest
           push: true
-          file: ./docker/Dockerfile.latest
-          tags: ${{ steps.meta.outputs.tags }}
+          platforms: 'linux/amd64,linux/arm64'
+          tags: ${{ steps.meta.outputs.tags }},la
           labels: ${{ steps.meta.outputs.labels }}
-
-      - uses: actions/delete-package-versions@v4
-        with:
-          package-name: 'chatgpt-on-wechat'
-          package-type: 'container'
-          min-versions-to-keep: 10
-          delete-only-untagged-versions: 'true'
-          token: ${{ secrets.GITHUB_TOKEN }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
